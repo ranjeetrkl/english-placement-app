@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI English Placement Test</title>
+    <!-- Link to your external stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen">
+            <h1>Welcome to the AI-Powered English Placement Test</h1>
+            <p style="text-align:center;">This advanced test uses AI to provide instant feedback on your writing and speaking skills.</p>
+            <button onclick="showScreen('test-screen')" class="button">Start Test</button>
+        </div>
+
+        <!-- The Test Screen -->
+        <div id="test-screen" class="screen hide">
+            <h2>English Placement Test</h2>
+            
+            <!-- Writing Section -->
+            <div class="question">
+                <h3>Part A: Writing Skills</h3>
+                <p><strong>Prompt:</strong> Write a short paragraph (about 50-70 words) describing your future goals.</p>
+                <textarea id="writing-input" rows="6" placeholder="Start writing here..."></textarea>
+                <button onclick="analyzeWriting()" class="button">Analyze My Writing</button>
+                <div id="writing-loader" class="spinner hide"></div>
+                <div id="writing-feedback" class="feedback-box hide"></div>
+            </div>
+
+            <!-- Speaking Section -->
+            <div class="question">
+                <h3>Part B: Speaking Skills</h3>
+                <p><strong>Prompt:</strong> Please answer the following question out loud: "Why do you want to improve your English?"</p>
+                <button id="record-btn" onclick="toggleRecording()" class="button button-secondary">Start Recording</button>
+                <p id="recording-status" style="text-align:center; margin-top:10px;"></p>
+                <div id="speaking-loader" class="spinner hide"></div>
+                <div id="speaking-feedback" class="feedback-box hide"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- The embedded JavaScript has been removed and replaced with this link. -->
+    <!-- The 'defer' attribute ensures the HTML loads before the script runs. -->
+    <script src="script.js" defer></script>
+</body>
+</html>

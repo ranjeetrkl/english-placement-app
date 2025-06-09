@@ -1,0 +1,6 @@
+# netlify.toml
+# This configuration file tells Netlify how to build your site.
+
+[build]
+  # This line tells Netlify where your serverless functions are located.
+  functions = "netlify/functions/"
