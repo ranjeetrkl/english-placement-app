@@ -1,4 +1,6 @@
-// This code runs on Netlify's server, not in the user's browser.
+// analyse.js
+// This code runs on Netlify's server. It now cleans the AI response itself.
+
 exports.handler = async function (event) {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
@@ -21,31 +23,40 @@ exports.handler = async function (event) {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody) // Pass along the payload from the frontend
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
 
-    // **FIX STARTS HERE: Check for a valid response before sending it back**
-    if (data.candidates && data.candidates.length > 0) {
-        // If the response is valid, send it back to the frontend app
-        return {
-          statusCode: 200,
-          body: JSON.stringify(data)
-        };
-    } else {
-        // If the AI response was empty or blocked, create our own error message.
-        // This ensures the frontend always receives valid JSON.
-        console.error("AI response was empty or blocked:", data);
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ error: "The AI could not process this request, possibly due to safety filters or an invalid prompt." })
-        };
+    // Check for API errors first
+    if (!data.candidates || data.candidates.length === 0) {
+      console.error("AI response was empty or blocked:", data);
+      throw new Error("The AI could not process this request, possibly due to safety filters.");
     }
-    // **FIX ENDS HERE**
 
+    const rawText = data.candidates[0].content.parts[0].text;
+    
+    // Find and parse the JSON within the raw text on the SERVER
+    const jsonStartIndex = rawText.indexOf('{');
+    const jsonEndIndex = rawText.lastIndexOf('}');
+    if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+        throw new Error("AI did not return a recognizable JSON object.");
+    }
+
+    const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
+    
+    // Try to parse it to ensure it's valid before sending
+    const feedbackObject = JSON.parse(jsonString);
+
+    // If successful, send the CLEAN, PARSED JSON back to the frontend
+    return {
+      statusCode: 200,
+      body: JSON.stringify(feedbackObject) // Sending the parsed object back as a string
+    };
+    
   } catch (error) {
     console.error("Serverless function error:", error);
+    // Send a structured error message back to the frontend
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 };
