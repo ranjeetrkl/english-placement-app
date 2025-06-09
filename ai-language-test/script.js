@@ -1,5 +1,5 @@
 // script.js
-// This file contains all the frontend JavaScript logic for the app.
+// This file contains the simplified frontend JavaScript logic.
 
 // --- Configuration for Netlify Hosting ---
 const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
@@ -23,7 +23,6 @@ async function analyzeWriting() {
     loader.classList.remove('hide');
     feedbackBox.classList.add('hide');
 
-    // A more strict prompt for the AI
     const prompt = `
         You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
         Your task is to act as an expert English teacher evaluating a student's writing.
@@ -54,41 +53,16 @@ async function analyzeWriting() {
             body: JSON.stringify(payload)
         });
         
-        const result = await response.json();
-        console.log("Full API Response from serverless function:", result);
+        // The server now guarantees a clean response or a structured error
+        const feedback = await response.json();
+        console.log("Clean feedback from serverless function:", feedback);
 
-        if (result.error) {
-            throw new Error(result.error);
+        // If the server sent back an error object, throw it to be caught below
+        if (feedback.error) {
+            throw new Error(feedback.error);
         }
 
-        if (result.promptFeedback) {
-            throw new Error(`Request was blocked by the API: ${result.promptFeedback.blockReason}`);
-        }
-        
-        // **FIX STARTS HERE: Make parsing more robust**
-        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            const rawText = result.candidates[0].content.parts[0].text;
-            const jsonStartIndex = rawText.indexOf('{');
-            const jsonEndIndex = rawText.lastIndexOf('}');
-
-            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
-                try {
-                    const feedback = JSON.parse(jsonString);
-                    displayFeedback('writing-feedback', feedback);
-                } catch (parseError) {
-                    console.error("Failed to parse extracted JSON:", parseError);
-                    throw new Error("AI returned malformed JSON data.");
-                }
-            } else {
-                console.error("Could not find JSON object in AI response:", rawText);
-                throw new Error("AI did not return a recognizable JSON object.");
-            }
-        } else {
-            console.error("Invalid response structure from API:", result);
-            throw new Error("Received an invalid or empty response from the AI server.");
-        }
-        // **FIX ENDS HERE**
+        displayFeedback('writing-feedback', feedback);
 
     } catch (error) {
         console.error("Error in analyzeWriting:", error);
@@ -187,42 +161,16 @@ async function analyzeSpokenText(transcript) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const result = await response.json();
-        console.log("Full Speaking API Response from serverless function:", result);
 
-        if (result.error) {
-            throw new Error(result.error);
-        }
-        
-        if (result.promptFeedback) {
-            throw new Error(`Request was blocked by the API: ${result.promptFeedback.blockReason}`);
-        }
-        
-        // **FIX STARTS HERE: Make parsing more robust**
-        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            const rawText = result.candidates[0].content.parts[0].text;
-            const jsonStartIndex = rawText.indexOf('{');
-            const jsonEndIndex = rawText.lastIndexOf('}');
+        const feedback = await response.json();
+        console.log("Clean speaking feedback from serverless function:", feedback);
 
-            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
-                try {
-                    const feedback = JSON.parse(jsonString);
-                    feedback.transcript = transcript; 
-                    displayFeedback('speaking-feedback', feedback);
-                } catch (parseError) {
-                    console.error("Failed to parse extracted JSON:", parseError);
-                    throw new Error("AI returned malformed JSON data.");
-                }
-            } else {
-                console.error("Could not find JSON object in AI response:", rawText);
-                throw new Error("AI did not return a recognizable JSON object.");
-            }
-        } else {
-             console.error("Invalid response structure from API:", result);
-             throw new Error("Received an invalid or empty response from the AI server.");
+        if (feedback.error) {
+            throw new Error(feedback.error);
         }
-        // **FIX ENDS HERE**
+
+        feedback.transcript = transcript; 
+        displayFeedback('speaking-feedback', feedback);
 
     } catch(error) {
         console.error("Error in analyzeSpokenText:", error);
@@ -234,7 +182,6 @@ async function analyzeSpokenText(transcript) {
         document.getElementById('recording-status').textContent = "";
     }
 }
-
 
 // --- Display Feedback ---
 function displayFeedback(elementId, feedback) {
