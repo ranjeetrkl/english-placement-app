@@ -2,5 +2,9 @@
 # This configuration file tells Netlify how to build your site.
 
 [build]
+  # The directory that contains the deploy-ready HTML files and assets.
+  # Since index.html is in the root of your project, we set this to "/"
+  publish = "/"
+
   # This line tells Netlify where your serverless functions are located.
   functions = "netlify/functions/"
