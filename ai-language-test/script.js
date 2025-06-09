@@ -74,27 +74,45 @@ async function analyzeWriting() {
     }
 }
 
-// --- Speaking Analysis ---
+// --- Speaking Analysis (with more robust logic) ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 let isRecording = false;
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true; // Set to true to allow it to listen longer
     recognition.lang = 'en-US';
     recognition.interimResults = false;
 
     recognition.onresult = async (event) => {
-        const transcript = event.results[0][0].transcript;
-        document.getElementById('recording-status').textContent = `Processing: "${transcript}"`;
-        await analyzeSpokenText(transcript);
+        // We only care about the final transcript
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        if (transcript) {
+            stopRecording(); // Stop recording once we have a final result
+            document.getElementById('recording-status').textContent = `Processing: "${transcript}"`;
+            await analyzeSpokenText(transcript);
+        }
     };
 
     recognition.onerror = (event) => {
         console.error("Speech recognition error", event.error);
-        document.getElementById('recording-status').textContent = "Error during recording. Please try again.";
-        stopRecording();
+        let errorMessage = "An unknown error occurred during recording.";
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            errorMessage = "Microphone permission was denied. Please allow microphone access in your browser settings.";
+        } else if (event.error === 'no-speech') {
+            errorMessage = "No speech was detected. Please try again.";
+        }
+        document.getElementById('recording-status').textContent = errorMessage;
+        stopRecording(true); // Stop recording with error flag
+    };
+
+    // If the speech recognition service ends on its own, restart it if we are still in recording mode
+    recognition.onend = () => {
+        if (isRecording) {
+            console.log("Speech recognition ended, restarting...");
+            recognition.start();
+        }
     };
 
 } else {
@@ -115,17 +133,25 @@ function startRecording() {
     isRecording = true;
     document.getElementById('record-btn').textContent = 'Stop Recording';
     document.getElementById('record-btn').classList.add('button-secondary');
-    document.getElementById('recording-status').textContent = 'Listening...';
+    document.getElementById('recording-status').textContent = 'Listening... Please allow microphone access if prompted.';
     document.getElementById('speaking-feedback').classList.add('hide');
-    recognition.start();
+    try {
+        recognition.start();
+    } catch (e) {
+        console.error("Could not start recognition:", e);
+        document.getElementById('recording-status').textContent = "Could not start recording. Please check microphone connection.";
+        isRecording = false;
+    }
 }
 
-function stopRecording() {
+function stopRecording(isError = false) {
      if (!recognition) return;
     isRecording = false;
     document.getElementById('record-btn').textContent = 'Start Recording';
     document.getElementById('record-btn').classList.remove('button-secondary');
-    document.getElementById('speaking-loader').classList.remove('hide');
+    if (!isError) { // Only show loader if it's not an immediate error
+        document.getElementById('speaking-loader').classList.remove('hide');
+    }
     recognition.stop();
 }
 
@@ -182,6 +208,7 @@ async function analyzeSpokenText(transcript) {
         document.getElementById('recording-status').textContent = "";
     }
 }
+
 
 // --- Display Feedback ---
 function displayFeedback(elementId, feedback) {
