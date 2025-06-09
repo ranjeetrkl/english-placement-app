@@ -2,7 +2,6 @@
 // This file contains all the frontend JavaScript logic for the app.
 
 // --- Configuration for Netlify Hosting ---
-// FIXED: Changed 'analyze' to 'analyse' to match your filename.
 const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
 
 // --- Screen Navigation ---
@@ -24,9 +23,14 @@ async function analyzeWriting() {
     loader.classList.remove('hide');
     feedbackBox.classList.add('hide');
 
-    const prompt = `You are an expert English teacher evaluating a student's writing. The student was asked to "describe your future goals".
-    Evaluate the following text: "${writingInput}".
-    Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement).`;
+    // A more strict prompt for the AI
+    const prompt = `
+        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
+        Your task is to act as an expert English teacher evaluating a student's writing.
+        The student was asked to "describe your future goals".
+        Evaluate the following text: "${writingInput}".
+        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement).
+        Your response must be ONLY the raw JSON object.`;
     
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -60,19 +64,31 @@ async function analyzeWriting() {
         if (result.promptFeedback) {
             throw new Error(`Request was blocked by the API: ${result.promptFeedback.blockReason}`);
         }
-
+        
+        // **FIX STARTS HERE: Make parsing more robust**
         if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            try {
-                const feedback = JSON.parse(result.candidates[0].content.parts[0].text);
-                displayFeedback('writing-feedback', feedback);
-            } catch (parseError) {
-                console.error("JSON Parsing Error:", parseError, "Raw text:", result.candidates[0].content.parts[0].text);
-                throw new Error("AI returned malformed data.");
+            const rawText = result.candidates[0].content.parts[0].text;
+            const jsonStartIndex = rawText.indexOf('{');
+            const jsonEndIndex = rawText.lastIndexOf('}');
+
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
+                try {
+                    const feedback = JSON.parse(jsonString);
+                    displayFeedback('writing-feedback', feedback);
+                } catch (parseError) {
+                    console.error("Failed to parse extracted JSON:", parseError);
+                    throw new Error("AI returned malformed JSON data.");
+                }
+            } else {
+                console.error("Could not find JSON object in AI response:", rawText);
+                throw new Error("AI did not return a recognizable JSON object.");
             }
         } else {
             console.error("Invalid response structure from API:", result);
             throw new Error("Received an invalid or empty response from the AI server.");
         }
+        // **FIX ENDS HERE**
 
     } catch (error) {
         console.error("Error in analyzeWriting:", error);
@@ -143,9 +159,12 @@ async function analyzeSpokenText(transcript) {
     const loader = document.getElementById('speaking-loader');
     const feedbackBox = document.getElementById('speaking-feedback');
 
-    const prompt = `You are an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
-    Evaluate the following transcript of their speech: "${transcript}".
-    Focus on grammar, clarity, and vocabulary. Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings with corrections), and "positivePoints" (an array of strings highlighting what they did well).`;
+    const prompt = `
+        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
+        Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
+        Evaluate the following transcript of their speech: "${transcript}".
+        Focus on grammar, clarity, and vocabulary. Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings with corrections), and "positivePoints" (an array of strings highlighting what they did well).
+        Your response must be ONLY the raw JSON object.`;
     
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -178,20 +197,32 @@ async function analyzeSpokenText(transcript) {
         if (result.promptFeedback) {
             throw new Error(`Request was blocked by the API: ${result.promptFeedback.blockReason}`);
         }
-
+        
+        // **FIX STARTS HERE: Make parsing more robust**
         if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            try {
-                const feedback = JSON.parse(result.candidates[0].content.parts[0].text);
-                feedback.transcript = transcript; 
-                displayFeedback('speaking-feedback', feedback);
-            } catch (parseError) {
-                 console.error("JSON Parsing Error:", parseError, "Raw text:", result.candidates[0].content.parts[0].text);
-                 throw new Error("AI returned malformed data.");
+            const rawText = result.candidates[0].content.parts[0].text;
+            const jsonStartIndex = rawText.indexOf('{');
+            const jsonEndIndex = rawText.lastIndexOf('}');
+
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
+                try {
+                    const feedback = JSON.parse(jsonString);
+                    feedback.transcript = transcript; 
+                    displayFeedback('speaking-feedback', feedback);
+                } catch (parseError) {
+                    console.error("Failed to parse extracted JSON:", parseError);
+                    throw new Error("AI returned malformed JSON data.");
+                }
+            } else {
+                console.error("Could not find JSON object in AI response:", rawText);
+                throw new Error("AI did not return a recognizable JSON object.");
             }
         } else {
              console.error("Invalid response structure from API:", result);
              throw new Error("Received an invalid or empty response from the AI server.");
         }
+        // **FIX ENDS HERE**
 
     } catch(error) {
         console.error("Error in analyzeSpokenText:", error);
