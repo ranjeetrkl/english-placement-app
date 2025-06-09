@@ -1,8 +1,93 @@
 // script.js
-// This file contains the simplified frontend JavaScript logic.
+// This file contains all the frontend JavaScript logic for the app.
 
-// --- Configuration for Netlify Hosting ---
+// --- Configuration ---
 const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
+let mcqScore = 0;
+let writingFeedback = null;
+let speakingFeedback = null;
+let dynamicMcqData = []; // To store the questions from the AI
+
+// --- Initial Setup ---
+document.addEventListener('DOMContentLoaded', () => {
+    generateMCQs();
+});
+
+// --- DYNAMIC MCQ GENERATION ---
+async function generateMCQs() {
+    const mcqLoader = document.getElementById('mcq-loader');
+    const mcqForm = document.getElementById('mcq-form');
+
+    const prompt = `
+        You are an API that ONLY returns valid JSON. Your task is to generate 5 unique, multiple-choice English grammar and vocabulary questions suitable for a placement test.
+        Provide your response as a JSON array of objects. Each object must have these exact keys:
+        1. "question" (a string for the question text).
+        2. "options" (an array of four string options).
+        3. "correct" (the 0-based index of the correct option in the 'options' array).
+        Ensure one option is clearly correct and the others are plausible distractors. The difficulty should be intermediate. Your response must be ONLY the raw JSON array.
+    `;
+
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "ARRAY",
+          items: {
+              type: "OBJECT",
+              properties: {
+                  "question": {"type": "STRING"},
+                  "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                  "correct": {"type": "NUMBER"}
+              }
+          }
+        }
+      }
+    };
+    
+    try {
+        const response = await fetch(SECURE_API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const feedback = await response.json();
+        if (feedback.error) throw new Error(feedback.error);
+        
+        dynamicMcqData = feedback; // Store the dynamically generated questions
+        loadMCQs(dynamicMcqData); // Load them into the form
+
+    } catch (error) {
+        console.error("Error generating MCQs:", error);
+        mcqForm.innerHTML = `<p style='color:red;'>Could not load grammar questions. Please refresh the page. (${error.message})</p>`;
+    } finally {
+        mcqLoader.classList.add('hide');
+    }
+}
+
+function loadMCQs(questions) {
+    const mcqForm = document.getElementById('mcq-form');
+    let mcqHTML = "";
+    questions.forEach((item, index) => {
+        mcqHTML += `
+            <div class="mcq-question" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                <p><strong>${index + 1}. ${item.question}</strong></p>
+                <div class="options">
+        `;
+        item.options.forEach((option, optionIndex) => {
+            mcqHTML += `
+                <div style="margin-bottom: 5px;">
+                    <input type="radio" name="question${index}" id="q${index}o${optionIndex}" value="${optionIndex}">
+                    <label for="q${index}o${optionIndex}" style="margin-left: 8px;">${option}</label>
+                </div>
+            `;
+        });
+        mcqHTML += `</div></div>`;
+    });
+    mcqForm.innerHTML = mcqHTML;
+}
+
 
 // --- Screen Navigation ---
 function showScreen(screenId) {
@@ -53,16 +138,11 @@ async function analyzeWriting() {
             body: JSON.stringify(payload)
         });
         
-        // The server now guarantees a clean response or a structured error
         const feedback = await response.json();
-        console.log("Clean feedback from serverless function:", feedback);
+        if (feedback.error) throw new Error(feedback.error);
 
-        // If the server sent back an error object, throw it to be caught below
-        if (feedback.error) {
-            throw new Error(feedback.error);
-        }
-
-        displayFeedback('writing-feedback', feedback);
+        writingFeedback = feedback; // Store feedback
+        displayFeedback('writing-feedback', writingFeedback);
 
     } catch (error) {
         console.error("Error in analyzeWriting:", error);
@@ -74,7 +154,7 @@ async function analyzeWriting() {
     }
 }
 
-// --- Speaking Analysis (with more robust logic) ---
+// --- Speaking Analysis ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 let isRecording = false;
@@ -99,7 +179,6 @@ if (SpeechRecognition) {
         let errorMessage = "An unknown error occurred. Please try again.";
         switch (event.error) {
             case 'not-allowed':
-            case 'service-not-allowed':
                 errorMessage = "Microphone permission was denied. Please allow microphone access in your browser settings and refresh the page.";
                 break;
             case 'no-speech':
@@ -108,23 +187,14 @@ if (SpeechRecognition) {
             case 'network':
                 errorMessage = "A network error occurred. Please check your internet connection and try again.";
                 break;
-            case 'audio-capture':
-                errorMessage = "Could not capture audio. Please ensure your microphone is properly connected and not in use by another application.";
-                break;
-            case 'aborted':
-                errorMessage = "Recording was stopped. Please try again.";
-                break;
         }
         document.getElementById('recording-status').textContent = errorMessage;
         stopRecording(true); 
     };
-    
-    // **UPDATED END HANDLER**
+
     recognition.onend = () => {
-        // Only set isRecording to false if it was a natural end, not an error-forced stop.
         if (isRecording) {
             isRecording = false;
-            console.log("Speech recognition service ended naturally.");
             document.getElementById('record-btn').textContent = 'Start Recording';
             document.getElementById('record-btn').classList.remove('button-secondary');
         }
@@ -153,15 +223,14 @@ function startRecording() {
     try {
         recognition.start();
     } catch (e) {
-        console.error("Could not start recognition:", e);
-        document.getElementById('recording-status').textContent = "Could not start recording. Please check microphone connection.";
         isRecording = false;
+        document.getElementById('recording-status').textContent = "Could not start recording.";
     }
 }
 
 function stopRecording(isError = false) {
      if (!recognition) return;
-    if (isRecording) { // Only stop if it's actually running
+    if (isRecording) {
         isRecording = false;
         recognition.stop();
     }
@@ -180,7 +249,7 @@ async function analyzeSpokenText(transcript) {
         You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
         Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
         Evaluate the following transcript of their speech: "${transcript}".
-        Focus on grammar, clarity, and vocabulary. Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings with corrections), and "positivePoints" (an array of strings highlighting what they did well). If there are no corrections or positive points, return an empty array for the corresponding key.
+        Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings). If there are no corrections or positive points, return an empty array for the corresponding key.
         Your response must be ONLY the raw JSON object.`;
     
     const payload = {
@@ -206,14 +275,11 @@ async function analyzeSpokenText(transcript) {
         });
 
         const feedback = await response.json();
-        console.log("Clean speaking feedback from serverless function:", feedback);
-
-        if (feedback.error) {
-            throw new Error(feedback.error);
-        }
-
+        if (feedback.error) throw new Error(feedback.error);
+        
         feedback.transcript = transcript; 
-        displayFeedback('speaking-feedback', feedback);
+        speakingFeedback = feedback; // Store feedback
+        displayFeedback('speaking-feedback', speakingFeedback);
 
     } catch(error) {
         console.error("Error in analyzeSpokenText:", error);
@@ -226,8 +292,7 @@ async function analyzeSpokenText(transcript) {
     }
 }
 
-
-// --- Display Feedback ---
+// --- Display Inline Feedback ---
 function displayFeedback(elementId, feedback) {
     const container = document.getElementById(elementId);
     let html = '';
@@ -236,23 +301,56 @@ function displayFeedback(elementId, feedback) {
         html = `
             <h4>AI Writing Analysis</h4>
             <p>Overall Score: <span class="score">${feedback.overallScore}/10</span></p>
-            <p><strong>Grammar Mistakes:</strong></p>
-            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
             <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
     } else if (elementId === 'speaking-feedback') {
          html = `
             <h4>AI Speaking Analysis</h4>
-            <p><em>Your response: "${feedback.transcript}"</em></p>
             <p>Clarity & Fluency Score: <span class="score">${feedback.clarityScore}/10</span></p>
             <p><strong>Suggested Corrections:</strong></p>
-            <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great, no major corrections needed!</li>'}</ul>
-            <p><strong>What You Did Well:</strong></p>
-            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
+            <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great!</li>'}</ul>
         `;
     }
 
     container.innerHTML = html;
     container.classList.remove('hide');
+}
+
+// --- Final Results Logic ---
+function calculateMCQScore() {
+    let score = 0;
+    dynamicMcqData.forEach((item, index) => { // Use the dynamic data
+        const selectedOption = document.querySelector(`input[name="question${index}"]:checked`);
+        if (selectedOption && parseInt(selectedOption.value) === item.correct) {
+            score++;
+        }
+    });
+    mcqScore = score;
+}
+
+function showFinalResults() {
+    calculateMCQScore();
+    const resultsContainer = document.getElementById('final-results-container');
+    let resultsHTML = `
+        <h4>Summary of Your Assessment</h4>
+        <p><strong>Grammar & Vocabulary Score:</strong> <span class="score">${mcqScore} / ${dynamicMcqData.length}</span></p>
+    `;
+
+    if (writingFeedback) {
+        resultsHTML += `<p><strong>AI Writing Score:</strong> <span class="score">${writingFeedback.overallScore} / 10</span></p>`;
+    } else {
+        resultsHTML += `<p><strong>AI Writing Score:</strong> Not attempted.</p>`;
+    }
+
+    if (speakingFeedback) {
+        resultsHTML += `<p><strong>AI Speaking Score:</strong> <span class="score">${speakingFeedback.clarityScore} / 10</span></p>`;
+    } else {
+        resultsHTML += `<p><strong>AI Speaking Score:</strong> Not attempted.</p>`;
+    }
+    
+    resultsHTML += `<hr><p>Based on these results, a teacher will contact you to confirm your placement. Thank you!</p>`;
+
+    resultsContainer.innerHTML = resultsHTML;
+    showScreen('results-screen');
 }

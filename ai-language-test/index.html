@@ -22,9 +22,23 @@
         <div id="test-screen" class="screen hide">
             <h2>English Placement Test</h2>
             
+            <!-- Dynamic Grammar and Vocabulary Section -->
+            <div class="question">
+                <h3>Part A: Grammar & Vocabulary</h3>
+                <p>Please answer the following multiple-choice questions.</p>
+                <form id="mcq-form">
+                    <!-- Loading indicator -->
+                    <div id="mcq-loader" style="text-align: center;">
+                        <div class="spinner"></div>
+                        <p>Generating unique questions for you...</p>
+                    </div>
+                    <!-- MCQ questions will be injected here by JavaScript -->
+                </form>
+            </div>
+
             <!-- Writing Section -->
             <div class="question">
-                <h3>Part A: Writing Skills</h3>
+                <h3>Part B: Writing Skills</h3>
                 <p><strong>Prompt:</strong> Write a short paragraph (about 50-70 words) describing your future goals.</p>
                 <textarea id="writing-input" rows="6" placeholder="Start writing here..."></textarea>
                 <button onclick="analyzeWriting()" class="button">Analyze My Writing</button>
@@ -34,19 +48,29 @@
 
             <!-- Speaking Section -->
             <div class="question">
-                <h3>Part B: Speaking Skills</h3>
+                <h3>Part C: Speaking Skills</h3>
                 <p><strong>Prompt:</strong> Please answer the following question out loud: "Why do you want to improve your English?"</p>
                 <button id="record-btn" onclick="toggleRecording()" class="button button-secondary">Start Recording</button>
                 <p id="recording-status" style="text-align:center; margin-top:10px;"></p>
                 <div id="speaking-loader" class="spinner hide"></div>
                 <div id="speaking-feedback" class="feedback-box hide"></div>
             </div>
+
+            <hr>
+            <button onclick="showFinalResults()" class="button">Finish Test & See My Results</button>
+        </div>
+
+        <!-- Final Results Screen -->
+        <div id="results-screen" class="screen hide">
+            <h2>Your Placement Test Results</h2>
+            <div id="final-results-container" class="feedback-box">
+                <!-- Final results will be displayed here -->
+            </div>
         </div>
 
     </div>
 
-    <!-- The embedded JavaScript has been removed and replaced with this link. -->
-    <!-- The 'defer' attribute ensures the HTML loads before the script runs. -->
+    <!-- Link to your external JavaScript file -->
     <script src="script.js" defer></script>
 </body>
 </html>
