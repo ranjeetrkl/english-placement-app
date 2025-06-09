@@ -94,7 +94,6 @@ if (SpeechRecognition) {
         }
     };
 
-    // **UPDATED ERROR HANDLING**
     recognition.onerror = (event) => {
         console.error("Speech recognition error", event.error);
         let errorMessage = "An unknown error occurred. Please try again.";
@@ -119,17 +118,15 @@ if (SpeechRecognition) {
         document.getElementById('recording-status').textContent = errorMessage;
         stopRecording(true); 
     };
-
+    
+    // **UPDATED END HANDLER**
     recognition.onend = () => {
+        // Only set isRecording to false if it was a natural end, not an error-forced stop.
         if (isRecording) {
-            console.log("Speech recognition service ended, restarting...");
-            try {
-                recognition.start();
-            } catch (e) {
-                // This can happen if the user navigates away while recording
-                console.error("Could not restart recognition:", e);
-                stopRecording(true);
-            }
+            isRecording = false;
+            console.log("Speech recognition service ended naturally.");
+            document.getElementById('record-btn').textContent = 'Start Recording';
+            document.getElementById('record-btn').classList.remove('button-secondary');
         }
     };
 
@@ -164,8 +161,7 @@ function startRecording() {
 
 function stopRecording(isError = false) {
      if (!recognition) return;
-    // Check if it's already stopped to prevent errors
-    if (isRecording || isError) {
+    if (isRecording) { // Only stop if it's actually running
         isRecording = false;
         recognition.stop();
     }
