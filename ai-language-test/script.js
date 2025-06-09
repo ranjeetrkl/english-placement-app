@@ -8,15 +8,15 @@ let writingFeedback = null;
 let speakingFeedback = null;
 let dynamicMcqData = []; // To store the questions from the AI
 
-// --- Initial Setup ---
-document.addEventListener('DOMContentLoaded', () => {
-    generateMCQs();
-});
-
-// --- DYNAMIC MCQ GENERATION (FIXED) ---
+// --- DYNAMIC MCQ GENERATION (ON-DEMAND & FIXED) ---
 async function generateMCQs() {
     const mcqLoader = document.getElementById('mcq-loader');
     const mcqForm = document.getElementById('mcq-form');
+    const generateBtn = document.getElementById('generate-mcq-btn');
+
+    // Hide button and show loader
+    generateBtn.classList.add('hide');
+    mcqLoader.classList.remove('hide');
 
     const prompt = `
         You are an API that ONLY returns valid JSON. Your task is to generate 5 unique, multiple-choice English grammar and vocabulary questions suitable for a placement test.
@@ -55,9 +55,9 @@ async function generateMCQs() {
         const result = await response.json();
         if (result.error) throw new Error(result.error);
         
-        // **FIX IS HERE:** We now correctly parse the AI's nested response.
+        // **FIX IS HERE:** Correctly parse the AI's nested response.
         if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            // The AI returns the JSON array as a string, so we must parse it.
+            // The AI returns the JSON array as a string, which must be parsed.
             const questionsArray = JSON.parse(result.candidates[0].content.parts[0].text);
             dynamicMcqData = questionsArray;
             loadMCQs(dynamicMcqData);
@@ -68,7 +68,7 @@ async function generateMCQs() {
 
     } catch (error) {
         console.error("Error generating MCQs:", error);
-        mcqForm.innerHTML = `<p style='color:red;'>Could not load grammar questions. Please refresh the page. (${error.message})</p>`;
+        mcqForm.innerHTML = `<p style='color:red;'>Could not load grammar questions. Please refresh the page and try again. (${error.message})</p>`;
     } finally {
         mcqLoader.classList.add('hide');
     }
@@ -77,7 +77,6 @@ async function generateMCQs() {
 function loadMCQs(questions) {
     const mcqForm = document.getElementById('mcq-form');
     let mcqHTML = "";
-    // This part will now work because 'questions' is guaranteed to be an array.
     questions.forEach((item, index) => {
         mcqHTML += `
             <div class="mcq-question" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
