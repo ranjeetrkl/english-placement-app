@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     generateMCQs();
 });
 
-// --- DYNAMIC MCQ GENERATION ---
+// --- DYNAMIC MCQ GENERATION (FIXED) ---
 async function generateMCQs() {
     const mcqLoader = document.getElementById('mcq-loader');
     const mcqForm = document.getElementById('mcq-form');
@@ -52,11 +52,19 @@ async function generateMCQs() {
             body: JSON.stringify(payload)
         });
         
-        const feedback = await response.json();
-        if (feedback.error) throw new Error(feedback.error);
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
         
-        dynamicMcqData = feedback; // Store the dynamically generated questions
-        loadMCQs(dynamicMcqData); // Load them into the form
+        // **FIX IS HERE:** We now correctly parse the AI's nested response.
+        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+            // The AI returns the JSON array as a string, so we must parse it.
+            const questionsArray = JSON.parse(result.candidates[0].content.parts[0].text);
+            dynamicMcqData = questionsArray;
+            loadMCQs(dynamicMcqData);
+        } else {
+            console.error("Invalid structure in AI response for MCQs:", result);
+            throw new Error("AI did not return valid question data.");
+        }
 
     } catch (error) {
         console.error("Error generating MCQs:", error);
@@ -69,6 +77,7 @@ async function generateMCQs() {
 function loadMCQs(questions) {
     const mcqForm = document.getElementById('mcq-form');
     let mcqHTML = "";
+    // This part will now work because 'questions' is guaranteed to be an array.
     questions.forEach((item, index) => {
         mcqHTML += `
             <div class="mcq-question" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
