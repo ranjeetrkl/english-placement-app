@@ -28,7 +28,7 @@ async function analyzeWriting() {
         Your task is to act as an expert English teacher evaluating a student's writing.
         The student was asked to "describe your future goals".
         Evaluate the following text: "${writingInput}".
-        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement).
+        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement). If there are no mistakes or suggestions, return an empty array for the corresponding key.
         Your response must be ONLY the raw JSON object.`;
     
     const payload = {
@@ -137,7 +137,7 @@ async function analyzeSpokenText(transcript) {
         You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
         Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
         Evaluate the following transcript of their speech: "${transcript}".
-        Focus on grammar, clarity, and vocabulary. Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings with corrections), and "positivePoints" (an array of strings highlighting what they did well).
+        Focus on grammar, clarity, and vocabulary. Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings with corrections), and "positivePoints" (an array of strings highlighting what they did well). If there are no corrections or positive points, return an empty array for the corresponding key.
         Your response must be ONLY the raw JSON object.`;
     
     const payload = {
@@ -193,9 +193,9 @@ function displayFeedback(elementId, feedback) {
             <h4>AI Writing Analysis</h4>
             <p>Overall Score: <span class="score">${feedback.overallScore}/10</span></p>
             <p><strong>Grammar Mistakes:</strong></p>
-            <ul>${feedback.grammarMistakes.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
+            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
-            <ul>${feedback.suggestions.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
+            <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
     } else if (elementId === 'speaking-feedback') {
          html = `
@@ -203,9 +203,9 @@ function displayFeedback(elementId, feedback) {
             <p><em>Your response: "${feedback.transcript}"</em></p>
             <p>Clarity & Fluency Score: <span class="score">${feedback.clarityScore}/10</span></p>
             <p><strong>Suggested Corrections:</strong></p>
-            <ul>${feedback.corrections.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great, no major corrections needed!</li>'}</ul>
+            <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great, no major corrections needed!</li>'}</ul>
             <p><strong>What You Did Well:</strong></p>
-            <ul>${feedback.positivePoints.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
+            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
         `;
     }
 
