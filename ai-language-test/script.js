@@ -8,7 +8,7 @@ let writingFeedback = null;
 let speakingFeedback = null;
 let dynamicMcqData = []; // To store the questions from the AI
 
-// --- DYNAMIC MCQ GENERATION (FINAL, ROBUST VERSION) ---
+// --- DYNAMIC MCQ GENERATION (FINAL, MOST ROBUST VERSION) ---
 async function generateMCQs() {
     const mcqLoader = document.getElementById('mcq-loader');
     const mcqForm = document.getElementById('mcq-form');
@@ -52,15 +52,23 @@ async function generateMCQs() {
             body: JSON.stringify(payload)
         });
         
-        const questionsArray = await response.json();
+        let questionsArray = await response.json();
 
-        // This logic now correctly handles the clean array from the server.
         if (questionsArray.error) {
             throw new Error(questionsArray.error);
         }
         
+        // **FINAL FIX:** This logic now intelligently handles both an array AND an object containing an array.
         if (!Array.isArray(questionsArray)) {
-            throw new Error("Data received from the server was not a valid question array.");
+            // If it's not an array, try to find an array inside the object.
+            const keys = Object.keys(questionsArray);
+            const arrayKey = keys.find(key => Array.isArray(questionsArray[key]));
+            if (arrayKey) {
+                questionsArray = questionsArray[arrayKey]; // It's an array now!
+            } else {
+                // If we still can't find an array, then the data is truly invalid.
+                throw new Error("Data received from the server was not a valid question array.");
+            }
         }
 
         dynamicMcqData = questionsArray;
