@@ -54,7 +54,7 @@ async function generateMCQs() {
         
         const questionsArray = await response.json();
 
-        // **FIX IS HERE:** This logic now correctly handles the clean response from the server.
+        // This logic now correctly handles the clean response from the server.
         if (questionsArray.error) {
             throw new Error(questionsArray.error);
         }
