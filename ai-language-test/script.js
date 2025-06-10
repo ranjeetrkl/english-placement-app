@@ -8,7 +8,7 @@ let writingFeedback = null;
 let speakingFeedback = null;
 let dynamicMcqData = []; // To store the questions from the AI
 
-// --- DYNAMIC MCQ GENERATION (SIMPLIFIED & ROBUST) ---
+// --- DYNAMIC MCQ GENERATION (FINAL, ROBUST VERSION) ---
 async function generateMCQs() {
     const mcqLoader = document.getElementById('mcq-loader');
     const mcqForm = document.getElementById('mcq-form');
@@ -54,7 +54,7 @@ async function generateMCQs() {
         
         const questionsArray = await response.json();
 
-        // This logic now correctly handles the clean response from the server.
+        // This logic now correctly handles the clean array from the server.
         if (questionsArray.error) {
             throw new Error(questionsArray.error);
         }
