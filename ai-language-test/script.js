@@ -8,7 +8,7 @@ let writingFeedback = null;
 let speakingFeedback = null;
 let dynamicMcqData = []; // To store the questions from the AI
 
-// --- DYNAMIC MCQ GENERATION (ON-DEMAND & FIXED) ---
+// --- DYNAMIC MCQ GENERATION (SIMPLIFIED & ROBUST) ---
 async function generateMCQs() {
     const mcqLoader = document.getElementById('mcq-loader');
     const mcqForm = document.getElementById('mcq-form');
@@ -52,24 +52,19 @@ async function generateMCQs() {
             body: JSON.stringify(payload)
         });
         
-        const result = await response.json();
-        if (result.error) throw new Error(result.error);
-        
-        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            const questionsArray = JSON.parse(result.candidates[0].content.parts[0].text);
-            dynamicMcqData = questionsArray;
-            loadMCQs(dynamicMcqData);
-        } else {
-            // This is the new logic to handle the case where the AI doesn't return the expected structure.
-            const questionsArray = result;
-            if (Array.isArray(questionsArray)) {
-                 dynamicMcqData = questionsArray;
-                 loadMCQs(dynamicMcqData);
-            } else {
-                 console.error("Invalid structure in AI response for MCQs:", result);
-                 throw new Error("AI did not return valid question data.");
-            }
+        const questionsArray = await response.json();
+
+        // **FIX IS HERE:** This logic now correctly handles the clean response from the server.
+        if (questionsArray.error) {
+            throw new Error(questionsArray.error);
         }
+        
+        if (!Array.isArray(questionsArray)) {
+            throw new Error("Data received from the server was not a valid question array.");
+        }
+
+        dynamicMcqData = questionsArray;
+        loadMCQs(dynamicMcqData);
 
     } catch (error) {
         console.error("Error generating MCQs:", error);
@@ -157,7 +152,7 @@ async function analyzeWriting() {
         const feedback = await response.json();
         if (feedback.error) throw new Error(feedback.error);
 
-        writingFeedback = feedback; // Store feedback
+        writingFeedback = feedback; 
         displayFeedback('writing-feedback', writingFeedback);
 
     } catch (error) {
@@ -312,7 +307,7 @@ async function analyzeSpokenText(transcript) {
         if (feedback.error) throw new Error(feedback.error);
         
         feedback.transcript = transcript; 
-        speakingFeedback = feedback; // Store feedback
+        speakingFeedback = feedback;
         displayFeedback('speaking-feedback', speakingFeedback);
 
     } catch(error) {
