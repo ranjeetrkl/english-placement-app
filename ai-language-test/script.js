@@ -350,3 +350,4 @@ function showFinalResults() {
     resultsContainer.innerHTML = resultsHTML;
     showScreen('results-screen');
 }
+
