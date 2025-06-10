@@ -6,68 +6,38 @@ const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
 let mcqScore = 0;
 let writingFeedback = null;
 let speakingFeedback = null;
-let dynamicMcqData = []; // To store the questions from the AI
+let dynamicMcqData = []; // To store the randomly selected questions
+
+// --- STATIC QUESTION BANK ---
+const questionBank = [
+    { question: "He _____ to the market yesterday.", options: ["go", "goes", "went", "gone"], correct: 2 },
+    { question: "She is the _____ girl in the class.", options: ["tall", "taller", "tallest", "more tall"], correct: 2 },
+    { question: "I have never _____ to Mumbai before.", options: ["be", "was", "been", "being"], correct: 2 },
+    { question: "The opposite of 'expensive' is _____.", options: ["cheap", "small", "beautiful", "far"], correct: 0 },
+    { question: "If you study hard, you _____ pass the exam.", options: ["will", "would", "can", "could"], correct: 0 },
+    { question: "There isn't _____ sugar in my coffee.", options: ["many", "much", "a lot", "some"], correct: 1 },
+    { question: "He is interested _____ learning French.", options: ["in", "on", "at", "for"], correct: 0 },
+    { question: "My keys are not on the table, so I must have _____ them at work.", options: ["leave", "left", "leaving", "leaves"], correct: 1 },
+    { question: "What _____ you do if you won the lottery?", options: ["will", "would", "are", "do"], correct: 1 },
+    { question: "A person who writes books is called an _____.", options: ["author", "artist", "actor", "athlete"], correct: 0 },
+    { question: "She has been waiting for the bus _____ two hours.", options: ["since", "for", "at", "from"], correct: 1 },
+    { question: "The train was late _____ the bad weather.", options: ["because of", "so", "but", "although"], correct: 0 },
+    { question: "I prefer tea _____ coffee.", options: ["than", "from", "to", "over"], correct: 2 },
+    { question: "Can you tell me where _____?", options: ["is the library", "the library is", "is library", "the library"], correct: 1 },
+    { question: "Neither my brother _____ my sister likes spinach.", options: ["or", "and", "but", "nor"], correct: 3 }
+];
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
-    generateMCQs();
+    // Shuffle the bank and select 5 random questions
+    dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
+    loadMCQs(dynamicMcqData);
 });
-
-// --- DYNAMIC MCQ GENERATION ---
-async function generateMCQs() {
-    const mcqLoader = document.getElementById('mcq-loader');
-    const mcqForm = document.getElementById('mcq-form');
-
-    const prompt = `
-        You are an API that ONLY returns valid JSON. Your task is to generate 5 unique, multiple-choice English grammar and vocabulary questions suitable for a placement test.
-        Provide your response as a JSON array of objects. Each object must have these exact keys:
-        1. "question" (a string for the question text).
-        2. "options" (an array of four string options).
-        3. "correct" (the 0-based index of the correct option in the 'options' array).
-        Ensure one option is clearly correct and the others are plausible distractors. The difficulty should be intermediate. Your response must be ONLY the raw JSON array.
-    `;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "ARRAY",
-          items: {
-              type: "OBJECT",
-              properties: {
-                  "question": {"type": "STRING"},
-                  "options": {"type": "ARRAY", "items": {"type": "STRING"}},
-                  "correct": {"type": "NUMBER"}
-              }
-          }
-        }
-      }
-    };
-    
-    try {
-        const response = await fetch(SECURE_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        const feedback = await response.json();
-        if (feedback.error) throw new Error(feedback.error);
-        
-        dynamicMcqData = feedback; // Store the dynamically generated questions
-        loadMCQs(dynamicMcqData); // Load them into the form
-
-    } catch (error) {
-        console.error("Error generating MCQs:", error);
-        mcqForm.innerHTML = `<p style='color:red;'>Could not load grammar questions. Please refresh the page. (${error.message})</p>`;
-    } finally {
-        mcqLoader.classList.add('hide');
-    }
-}
 
 function loadMCQs(questions) {
     const mcqForm = document.getElementById('mcq-form');
+    if(!mcqForm) return;
+
     let mcqHTML = "";
     questions.forEach((item, index) => {
         mcqHTML += `
@@ -92,27 +62,28 @@ function loadMCQs(questions) {
 // --- Screen Navigation ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(screen => screen.classList.add('hide'));
-    document.getElementById(screenId).classList.remove('hide');
+    const screenToShow = document.getElementById(screenId);
+    if(screenToShow) screenToShow.classList.remove('hide');
 }
 
 // --- Writing Analysis ---
 async function analyzeWriting() {
-    const writingInput = document.getElementById('writing-input').value;
-    if (writingInput.trim().length < 10) {
+    const writingInput = document.getElementById('writing-input');
+    if (!writingInput || writingInput.value.trim().length < 10) {
         alert("Please write a bit more before analyzing.");
         return;
     }
 
     const loader = document.getElementById('writing-loader');
     const feedbackBox = document.getElementById('writing-feedback');
-    loader.classList.remove('hide');
-    feedbackBox.classList.add('hide');
+    if(loader) loader.classList.remove('hide');
+    if(feedbackBox) feedbackBox.classList.add('hide');
 
     const prompt = `
         You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
         Your task is to act as an expert English teacher evaluating a student's writing.
         The student was asked to "describe your future goals".
-        Evaluate the following text: "${writingInput}".
+        Evaluate the following text: "${writingInput.value}".
         Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement). If there are no mistakes or suggestions, return an empty array for the corresponding key.
         Your response must be ONLY the raw JSON object.`;
     
@@ -141,16 +112,16 @@ async function analyzeWriting() {
         const feedback = await response.json();
         if (feedback.error) throw new Error(feedback.error);
 
-        writingFeedback = feedback; // Store feedback
+        writingFeedback = feedback; 
         displayFeedback('writing-feedback', writingFeedback);
 
     } catch (error) {
         console.error("Error in analyzeWriting:", error);
         const feedbackContainer = document.getElementById('writing-feedback');
-        feedbackContainer.innerHTML = `<p style='color:red;'>Sorry, something went wrong. Please try again later. (${error.message})</p>`;
-        feedbackContainer.classList.remove('hide');
+        if(feedbackContainer) feedbackContainer.innerHTML = `<p style='color:red;'>Sorry, something went wrong. Please try again later. (${error.message})</p>`;
+        if(feedbackContainer) feedbackContainer.classList.remove('hide');
     } finally {
-        loader.classList.add('hide');
+        if(loader) loader.classList.add('hide');
     }
 }
 
@@ -169,7 +140,8 @@ if (SpeechRecognition) {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
         if (transcript) {
             stopRecording(); 
-            document.getElementById('recording-status').textContent = `Processing: "${transcript}"`;
+            const statusEl = document.getElementById('recording-status');
+            if(statusEl) statusEl.textContent = `Processing: "${transcript}"`;
             await analyzeSpokenText(transcript);
         }
     };
@@ -188,21 +160,27 @@ if (SpeechRecognition) {
                 errorMessage = "A network error occurred. Please check your internet connection and try again.";
                 break;
         }
-        document.getElementById('recording-status').textContent = errorMessage;
+        const statusEl = document.getElementById('recording-status');
+        if(statusEl) statusEl.textContent = errorMessage;
         stopRecording(true); 
     };
 
     recognition.onend = () => {
         if (isRecording) {
             isRecording = false;
-            document.getElementById('record-btn').textContent = 'Start Recording';
-            document.getElementById('record-btn').classList.remove('button-secondary');
+            const recordBtn = document.getElementById('record-btn');
+            if(recordBtn) {
+                recordBtn.textContent = 'Start Recording';
+                recordBtn.classList.remove('button-secondary');
+            }
         }
     };
 
 } else {
-    document.getElementById('record-btn').disabled = true;
-    document.getElementById('recording-status').textContent = "Sorry, your browser doesn't support speech recognition.";
+    const recordBtn = document.getElementById('record-btn');
+    const statusEl = document.getElementById('recording-status');
+    if(recordBtn) recordBtn.disabled = true;
+    if(statusEl) statusEl.textContent = "Sorry, your browser doesn't support speech recognition.";
 }
 
 function toggleRecording() {
@@ -216,15 +194,22 @@ function toggleRecording() {
 function startRecording() {
     if (!recognition) return;
     isRecording = true;
-    document.getElementById('record-btn').textContent = 'Stop Recording';
-    document.getElementById('record-btn').classList.add('button-secondary');
-    document.getElementById('recording-status').textContent = 'Listening... Please allow microphone access if prompted.';
-    document.getElementById('speaking-feedback').classList.add('hide');
+    const recordBtn = document.getElementById('record-btn');
+    const statusEl = document.getElementById('recording-status');
+    const feedbackBox = document.getElementById('speaking-feedback');
+
+    if(recordBtn) {
+        recordBtn.textContent = 'Stop Recording';
+        recordBtn.classList.add('button-secondary');
+    }
+    if(statusEl) statusEl.textContent = 'Listening... Please allow microphone access if prompted.';
+    if(feedbackBox) feedbackBox.classList.add('hide');
+    
     try {
         recognition.start();
     } catch (e) {
         isRecording = false;
-        document.getElementById('recording-status').textContent = "Could not start recording.";
+        if(statusEl) statusEl.textContent = "Could not start recording.";
     }
 }
 
@@ -234,10 +219,14 @@ function stopRecording(isError = false) {
         isRecording = false;
         recognition.stop();
     }
-    document.getElementById('record-btn').textContent = 'Start Recording';
-    document.getElementById('record-btn').classList.remove('button-secondary');
-    if (!isError) { 
-        document.getElementById('speaking-loader').classList.remove('hide');
+    const recordBtn = document.getElementById('record-btn');
+    const loader = document.getElementById('speaking-loader');
+    if(recordBtn){
+        recordBtn.textContent = 'Start Recording';
+        recordBtn.classList.remove('button-secondary');
+    }
+    if (!isError && loader) { 
+        loader.classList.remove('hide');
     }
 }
 
@@ -278,23 +267,28 @@ async function analyzeSpokenText(transcript) {
         if (feedback.error) throw new Error(feedback.error);
         
         feedback.transcript = transcript; 
-        speakingFeedback = feedback; // Store feedback
+        speakingFeedback = feedback;
         displayFeedback('speaking-feedback', speakingFeedback);
 
     } catch(error) {
         console.error("Error in analyzeSpokenText:", error);
         const feedbackContainer = document.getElementById('speaking-feedback');
-        feedbackContainer.innerHTML = `<p style='color:red;'>Sorry, something went wrong. Please try again later. (${error.message})</p>`;
-        feedbackContainer.classList.remove('hide');
+        if(feedbackContainer) {
+            feedbackContainer.innerHTML = `<p style='color:red;'>Sorry, something went wrong. Please try again later. (${error.message})</p>`;
+            feedbackContainer.classList.remove('hide');
+        }
     } finally {
-        loader.classList.add('hide');
-        document.getElementById('recording-status').textContent = "";
+        if(loader) loader.classList.add('hide');
+        const statusEl = document.getElementById('recording-status');
+        if(statusEl) statusEl.textContent = "";
     }
 }
 
 // --- Display Inline Feedback ---
 function displayFeedback(elementId, feedback) {
     const container = document.getElementById(elementId);
+    if(!container) return;
+    
     let html = '';
 
     if (elementId === 'writing-feedback') {
@@ -332,6 +326,8 @@ function calculateMCQScore() {
 function showFinalResults() {
     calculateMCQScore();
     const resultsContainer = document.getElementById('final-results-container');
+    if(!resultsContainer) return;
+
     let resultsHTML = `
         <h4>Summary of Your Assessment</h4>
         <p><strong>Grammar & Vocabulary Score:</strong> <span class="score">${mcqScore} / ${dynamicMcqData.length}</span></p>
