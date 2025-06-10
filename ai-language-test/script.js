@@ -6,81 +6,33 @@ const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
 let mcqScore = 0;
 let writingFeedback = null;
 let speakingFeedback = null;
-let dynamicMcqData = []; // To store the questions from the AI
+let dynamicMcqData = []; // To store the randomly selected questions
 
-// --- DYNAMIC MCQ GENERATION (FINAL, MOST ROBUST VERSION) ---
-async function generateMCQs() {
-    const mcqLoader = document.getElementById('mcq-loader');
-    const mcqForm = document.getElementById('mcq-form');
-    const generateBtn = document.getElementById('generate-mcq-btn');
+// --- STATIC QUESTION BANK ---
+const questionBank = [
+    { question: "He _____ to the market yesterday.", options: ["go", "goes", "went", "gone"], correct: 2 },
+    { question: "She is the _____ girl in the class.", options: ["tall", "taller", "tallest", "more tall"], correct: 2 },
+    { question: "I have never _____ to Mumbai before.", options: ["be", "was", "been", "being"], correct: 2 },
+    { question: "The opposite of 'expensive' is _____.", options: ["cheap", "small", "beautiful", "far"], correct: 0 },
+    { question: "If you study hard, you _____ pass the exam.", options: ["will", "would", "can", "could"], correct: 0 },
+    { question: "There isn't _____ sugar in my coffee.", options: ["many", "much", "a lot", "some"], correct: 1 },
+    { question: "He is interested _____ learning French.", options: ["in", "on", "at", "for"], correct: 0 },
+    { question: "My keys are not on the table, so I must have _____ them at work.", options: ["leave", "left", "leaving", "leaves"], correct: 1 },
+    { question: "What _____ you do if you won the lottery?", options: ["will", "would", "are", "do"], correct: 1 },
+    { question: "A person who writes books is called an _____.", options: ["author", "artist", "actor", "athlete"], correct: 0 },
+    { question: "She has been waiting for the bus _____ two hours.", options: ["since", "for", "at", "from"], correct: 1 },
+    { question: "The train was late _____ the bad weather.", options: ["because of", "so", "but", "although"], correct: 0 },
+    { question: "I prefer tea _____ coffee.", options: ["than", "from", "to", "over"], correct: 2 },
+    { question: "Can you tell me where _____?", options: ["is the library", "the library is", "is library", "the library"], correct: 1 },
+    { question: "Neither my brother _____ my sister likes spinach.", options: ["or", "and", "but", "nor"], correct: 3 }
+];
 
-    // Hide button and show loader
-    if(generateBtn) generateBtn.classList.add('hide');
-    if(mcqLoader) mcqLoader.classList.remove('hide');
-
-    const prompt = `
-        You are an API that ONLY returns valid JSON. Your task is to generate 5 unique, multiple-choice English grammar and vocabulary questions suitable for a placement test.
-        Provide your response as a JSON array of objects. Each object must have these exact keys:
-        1. "question" (a string for the question text).
-        2. "options" (an array of four string options).
-        3. "correct" (the 0-based index of the correct option in the 'options' array).
-        Ensure one option is clearly correct and the others are plausible distractors. The difficulty should be intermediate. Your response must be ONLY the raw JSON array.
-    `;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "ARRAY",
-          items: {
-              type: "OBJECT",
-              properties: {
-                  "question": {"type": "STRING"},
-                  "options": {"type": "ARRAY", "items": {"type": "STRING"}},
-                  "correct": {"type": "NUMBER"}
-              }
-          }
-        }
-      }
-    };
-    
-    try {
-        const response = await fetch(SECURE_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        let questionsArray = await response.json();
-
-        if (questionsArray.error) {
-            throw new Error(questionsArray.error);
-        }
-        
-        // **FINAL FIX:** This logic now intelligently handles both an array AND an object containing an array.
-        if (!Array.isArray(questionsArray)) {
-            // If it's not an array, try to find an array inside the object.
-            const keys = Object.keys(questionsArray);
-            const arrayKey = keys.find(key => Array.isArray(questionsArray[key]));
-            if (arrayKey) {
-                questionsArray = questionsArray[arrayKey]; // It's an array now!
-            } else {
-                // If we still can't find an array, then the data is truly invalid.
-                throw new Error("Data received from the server was not a valid question array.");
-            }
-        }
-
-        dynamicMcqData = questionsArray;
-        loadMCQs(dynamicMcqData);
-
-    } catch (error) {
-        console.error("Error generating MCQs:", error);
-        if(mcqForm) mcqForm.innerHTML = `<p style='color:red;'>Could not load grammar questions. Please refresh the page and try again. (${error.message})</p>`;
-    } finally {
-        if(mcqLoader) mcqLoader.classList.add('hide');
-    }
-}
+// --- Initial Setup ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Shuffle the bank and select 5 random questions
+    dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
+    loadMCQs(dynamicMcqData);
+});
 
 function loadMCQs(questions) {
     const mcqForm = document.getElementById('mcq-form');

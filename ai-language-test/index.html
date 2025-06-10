@@ -22,21 +22,13 @@
         <div id="test-screen" class="screen hide">
             <h2>English Placement Test</h2>
             
-            <!-- Dynamic Grammar and Vocabulary Section -->
+            <!-- Grammar and Vocabulary Section -->
             <div class="question">
                 <h3>Part A: Grammar & Vocabulary</h3>
-                <p>Click the button below to generate your unique questions.</p>
-                <div id="mcq-container">
-                    <!-- Button to trigger generation -->
-                    <button id="generate-mcq-btn" onclick="generateMCQs()" class="button">Generate Grammar & Vocabulary Questions</button>
-                    <!-- Loading indicator -->
-                    <div id="mcq-loader" class="hide" style="text-align: center;">
-                        <div class="spinner"></div>
-                        <p>Generating questions for you...</p>
-                    </div>
-                     <!-- MCQ form will be injected here -->
-                    <form id="mcq-form"></form>
-                </div>
+                <p>Please answer the following multiple-choice questions.</p>
+                <form id="mcq-form">
+                    <!-- MCQ questions will be injected here instantly by JavaScript -->
+                </form>
             </div>
 
             <!-- Writing Section -->
