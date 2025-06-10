@@ -1,5 +1,5 @@
 // analyse.js
-// This code runs on Netlify's server. It now cleans the AI response itself.
+// This code runs on Netlify's server. Its job is to clean the AI response.
 
 exports.handler = async function (event) {
   // Only allow POST requests
@@ -31,27 +31,35 @@ exports.handler = async function (event) {
     // Check for API errors first
     if (!data.candidates || data.candidates.length === 0) {
       console.error("AI response was empty or blocked:", data);
-      throw new Error("The AI could not process this request, possibly due to safety filters.");
+      throw new Error("The AI could not process this request.");
     }
-
+    
+    // The AI's actual content is a JSON string inside another object. We must parse it.
     const rawText = data.candidates[0].content.parts[0].text;
     
     // Find and parse the JSON within the raw text on the SERVER
     const jsonStartIndex = rawText.indexOf('{');
     const jsonEndIndex = rawText.lastIndexOf('}');
-    if (jsonStartIndex === -1 || jsonEndIndex === -1) {
-        throw new Error("AI did not return a recognizable JSON object.");
+    const arrayStartIndex = rawText.indexOf('[');
+    const arrayEndIndex = rawText.lastIndexOf(']');
+    
+    let cleanData;
+
+    // Check if the response is an object or an array and parse accordingly
+    if (arrayStartIndex !== -1 && arrayEndIndex !== -1) {
+        const jsonString = rawText.substring(arrayStartIndex, arrayEndIndex + 1);
+        cleanData = JSON.parse(jsonString);
+    } else if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+        const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
+        cleanData = JSON.parse(jsonString);
+    } else {
+        throw new Error("AI did not return a recognizable JSON object or array.");
     }
 
-    const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
-    
-    // Try to parse it to ensure it's valid before sending
-    const feedbackObject = JSON.parse(jsonString);
-
-    // If successful, send the CLEAN, PARSED JSON back to the frontend
+    // If successful, send the CLEAN, PARSED DATA back to the frontend
     return {
       statusCode: 200,
-      body: JSON.stringify(feedbackObject) // Sending the parsed object back as a string
+      body: JSON.stringify(cleanData) // Sending the clean object/array back as a string
     };
     
   } catch (error) {
