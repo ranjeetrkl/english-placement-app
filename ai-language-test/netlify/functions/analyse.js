@@ -34,32 +34,41 @@ exports.handler = async function (event) {
       throw new Error("The AI could not process this request.");
     }
     
-    // The AI's actual content is a JSON string inside another object. We must parse it.
-    const rawText = data.candidates[0].content.parts[0].text;
+    let rawText = data.candidates[0].content.parts[0].text;
     
-    // Find and parse the JSON within the raw text on the SERVER
-    const jsonStartIndex = rawText.indexOf('{');
-    const jsonEndIndex = rawText.lastIndexOf('}');
-    const arrayStartIndex = rawText.indexOf('[');
-    const arrayEndIndex = rawText.lastIndexOf(']');
+    // **NEW, MORE ROBUST PARSING LOGIC**
+    // Remove markdown code fences if they exist
+    rawText = rawText.replace(/```json\n/g, '').replace(/```/g, '');
     
-    let cleanData;
+    // Find the first '{' or '[' and the last '}' or ']'
+    const firstBrace = rawText.indexOf('{');
+    const firstBracket = rawText.indexOf('[');
+    
+    let startIndex;
+    if (firstBrace === -1) startIndex = firstBracket;
+    else if (firstBracket === -1) startIndex = firstBrace;
+    else startIndex = Math.min(firstBrace, firstBracket);
 
-    // Check if the response is an object or an array and parse accordingly
-    if (arrayStartIndex !== -1 && arrayEndIndex !== -1) {
-        const jsonString = rawText.substring(arrayStartIndex, arrayEndIndex + 1);
-        cleanData = JSON.parse(jsonString);
-    } else if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-        const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
-        cleanData = JSON.parse(jsonString);
-    } else {
+    const lastBrace = rawText.lastIndexOf('}');
+    const lastBracket = rawText.lastIndexOf(']');
+
+    let endIndex;
+    if (lastBrace === -1) endIndex = lastBracket;
+    else if (lastBracket === -1) endIndex = lastBrace;
+    else endIndex = Math.max(lastBrace, lastBracket);
+    
+    if (startIndex === -1 || endIndex === -1) {
         throw new Error("AI did not return a recognizable JSON object or array.");
     }
+
+    const jsonString = rawText.substring(startIndex, endIndex + 1);
+    
+    const cleanData = JSON.parse(jsonString);
 
     // If successful, send the CLEAN, PARSED DATA back to the frontend
     return {
       statusCode: 200,
-      body: JSON.stringify(cleanData) // Sending the clean object/array back as a string
+      body: JSON.stringify(cleanData) 
     };
     
   } catch (error) {
