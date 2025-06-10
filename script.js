@@ -8,26 +8,8 @@ let writingFeedback = null;
 let speakingFeedback = null;
 let dynamicMcqData = []; // To store the randomly selected questions
 
-// --- STATIC QUESTION BANK ---
-const questionBank = [
-    { question: "He _____ to the market yesterday.", options: ["go", "goes", "went", "gone"], correct: 2 },
-    { question: "She is the _____ girl in the class.", options: ["tall", "taller", "tallest", "more tall"], correct: 2 },
-    { question: "I have never _____ to Mumbai before.", options: ["be", "was", "been", "being"], correct: 2 },
-    { question: "The opposite of 'expensive' is _____.", options: ["cheap", "small", "beautiful", "far"], correct: 0 },
-    { question: "If you study hard, you _____ pass the exam.", options: ["will", "would", "can", "could"], correct: 0 },
-    { question: "There isn't _____ sugar in my coffee.", options: ["many", "much", "a lot", "some"], correct: 1 },
-    { question: "He is interested _____ learning French.", options: ["in", "on", "at", "for"], correct: 0 },
-    { question: "My keys are not on the table, so I must have _____ them at work.", options: ["leave", "left", "leaving", "leaves"], correct: 1 },
-    { question: "What _____ you do if you won the lottery?", options: ["will", "would", "are", "do"], correct: 1 },
-    { question: "A person who writes books is called an _____.", options: ["author", "artist", "actor", "athlete"], correct: 0 },
-    { question: "She has been waiting for the bus _____ two hours.", options: ["since", "for", "at", "from"], correct: 1 },
-    { question: "The train was late _____ the bad weather.", options: ["because of", "so", "but", "although"], correct: 0 },
-    { question: "I prefer tea _____ coffee.", options: ["than", "from", "to", "over"], correct: 2 },
-    { question: "Can you tell me where _____?", options: ["is the library", "the library is", "is library", "the library"], correct: 1 },
-    { question: "Neither my brother _____ my sister likes spinach.", options: ["or", "and", "but", "nor"], correct: 3 }
-];
-
 // --- Initial Setup ---
+// The 'questionBank' variable is now available globally from questions.js
 document.addEventListener('DOMContentLoaded', () => {
     // Shuffle the bank and select 5 random questions
     dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
@@ -292,18 +274,25 @@ function displayFeedback(elementId, feedback) {
     let html = '';
 
     if (elementId === 'writing-feedback') {
+        const score = feedback.overallScore !== undefined ? `${feedback.overallScore}/10` : 'Not available';
         html = `
             <h4>AI Writing Analysis</h4>
-            <p>Overall Score: <span class="score">${feedback.overallScore}/10</span></p>
+            <p>Overall Score: <span class="score">${score}</span></p>
+            <p><strong>Grammar Mistakes:</strong></p>
+            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
             <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
     } else if (elementId === 'speaking-feedback') {
+         const score = feedback.clarityScore !== undefined ? `${feedback.clarityScore}/10` : 'Not available';
          html = `
             <h4>AI Speaking Analysis</h4>
-            <p>Clarity & Fluency Score: <span class="score">${feedback.clarityScore}/10</span></p>
+            <p><em>Your response: "${feedback.transcript}"</em></p>
+            <p>Clarity & Fluency Score: <span class="score">${score}</span></p>
             <p><strong>Suggested Corrections:</strong></p>
             <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great!</li>'}</ul>
+            <p><strong>What You Did Well:</strong></p>
+            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
         `;
     }
 
@@ -334,13 +323,15 @@ function showFinalResults() {
     `;
 
     if (writingFeedback) {
-        resultsHTML += `<p><strong>AI Writing Score:</strong> <span class="score">${writingFeedback.overallScore} / 10</span></p>`;
+        const score = writingFeedback.overallScore !== undefined ? `${writingFeedback.overallScore}/10` : 'Not attempted';
+        resultsHTML += `<p><strong>AI Writing Score:</strong> <span class="score">${score}</span></p>`;
     } else {
         resultsHTML += `<p><strong>AI Writing Score:</strong> Not attempted.</p>`;
     }
 
     if (speakingFeedback) {
-        resultsHTML += `<p><strong>AI Speaking Score:</strong> <span class="score">${speakingFeedback.clarityScore} / 10</span></p>`;
+        const score = speakingFeedback.clarityScore !== undefined ? `${speakingFeedback.clarityScore}/10` : 'Not attempted';
+        resultsHTML += `<p><strong>AI Speaking Score:</strong> <span class="score">${score}</span></p>`;
     } else {
         resultsHTML += `<p><strong>AI Speaking Score:</strong> Not attempted.</p>`;
     }

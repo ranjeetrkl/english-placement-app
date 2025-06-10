@@ -22,17 +22,12 @@
         <div id="test-screen" class="screen hide">
             <h2>English Placement Test</h2>
             
-            <!-- Dynamic Grammar and Vocabulary Section -->
+            <!-- Grammar and Vocabulary Section -->
             <div class="question">
                 <h3>Part A: Grammar & Vocabulary</h3>
                 <p>Please answer the following multiple-choice questions.</p>
                 <form id="mcq-form">
-                    <!-- Loading indicator -->
-                    <div id="mcq-loader" style="text-align: center;">
-                        <div class="spinner"></div>
-                        <p>Generating unique questions for you...</p>
-                    </div>
-                    <!-- MCQ questions will be injected here by JavaScript -->
+                    <!-- MCQ questions will be injected here instantly by JavaScript -->
                 </form>
             </div>
 
@@ -70,7 +65,9 @@
 
     </div>
 
-    <!-- Link to your external JavaScript file -->
+    <!-- Link to the new question bank file FIRST -->
+    <script src="questions.js"></script>
+    <!-- Link to your main script file SECOND -->
     <script src="script.js" defer></script>
 </body>
 </html>
