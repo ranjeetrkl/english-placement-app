@@ -1,106 +1,79 @@
 // analyse.js
-// This code now handles both AI analysis AND saving results to Firestore.
+// This code runs on Netlify's server. Its job is to clean the AI response.
 
-// Import Firebase Admin SDK
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Initialize Firebase App
-// IMPORTANT: You will need to get these credentials from your Firebase project settings
-// and add them as Environment Variables in Netlify.
-try {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Fix for newline characters
-    })
-  });
-} catch (error) {
-  // This might happen if the app is already initialized, which is fine.
-  if (!/already exists/u.test(error.message)) {
-    console.error('Firebase admin initialization error', error.stack);
-  }
-}
-
-// Main handler function
 exports.handler = async function (event) {
+  // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const requestBody = JSON.parse(event.body);
-
-  if (requestBody.type === 'analyze') {
-    return handleAnalysis(requestBody);
-  } else if (requestBody.type === 'saveResults') {
-    return saveResultsToFirestore(requestBody.data);
-  } else {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request type' }) };
-  }
-};
-
-// Function to handle AI analysis requests
-async function handleAnalysis(requestBody) {
+  // Get the Google AI API Key securely from Netlify's environment variables
   const apiKey = process.env.GOOGLE_API_KEY;
+
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Google AI API key is not configured.' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'API key is not configured on the server.' }) };
   }
-  
+
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   
-  const payload = {
-      contents: [{ role: "user", parts: [{ text: requestBody.prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: requestBody.schema
-      }
-  };
-
   try {
+    const requestBody = JSON.parse(event.body);
+
+    // Make the secure call to the Google AI API
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
-    
+
+    // Check for API errors first
     if (!data.candidates || data.candidates.length === 0) {
+      console.error("AI response was empty or blocked:", data);
       throw new Error("The AI could not process this request.");
     }
+    
+    let rawText = data.candidates[0].content.parts[0].text;
+    
+    // **NEW, MORE ROBUST PARSING LOGIC**
+    // Remove markdown code fences if they exist
+    rawText = rawText.replace(/```json\n/g, '').replace(/```/g, '');
+    
+    // Find the first '{' or '[' and the last '}' or ']'
+    const firstBrace = rawText.indexOf('{');
+    const firstBracket = rawText.indexOf('[');
+    
+    let startIndex;
+    if (firstBrace === -1) startIndex = firstBracket;
+    else if (firstBracket === -1) startIndex = firstBrace;
+    else startIndex = Math.min(firstBrace, firstBracket);
 
-    const rawText = data.candidates[0].content.parts[0].text;
-    const cleanData = JSON.parse(rawText);
+    const lastBrace = rawText.lastIndexOf('}');
+    const lastBracket = rawText.lastIndexOf(']');
 
-    return { statusCode: 200, body: JSON.stringify(cleanData) };
+    let endIndex;
+    if (lastBrace === -1) endIndex = lastBracket;
+    else if (lastBracket === -1) endIndex = lastBrace;
+    else endIndex = Math.max(lastBrace, lastBracket);
+    
+    if (startIndex === -1 || endIndex === -1) {
+        throw new Error("AI did not return a recognizable JSON object or array.");
+    }
 
+    const jsonString = rawText.substring(startIndex, endIndex + 1);
+    
+    const cleanData = JSON.parse(jsonString);
+
+    // If successful, send the CLEAN, PARSED DATA back to the frontend
+    return {
+      statusCode: 200,
+      body: JSON.stringify(cleanData) 
+    };
+    
   } catch (error) {
-    console.error("AI Analysis function error:", error);
+    console.error("Serverless function error:", error);
+    // Send a structured error message back to the frontend
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
-}
-
-// Function to save results to Firestore
-async function saveResultsToFirestore(data) {
-    const appId = process.env.APP_ID || 'default-app-id'; // Use Netlify's APP_ID or a default
-    const db = getFirestore();
-    
-    // The collection path for public data
-    const resultsCollectionPath = `/artifacts/${appId}/public/data/student_results`;
-    
-    try {
-        const docRef = await db.collection(resultsCollectionPath).add(data);
-        console.log("Document written with ID: ", docRef.id);
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ success: true, id: docRef.id })
-        };
-    } catch (error) {
-        console.error("Error adding document to Firestore: ", error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: "Failed to save results to database." })
-        };
-    }
-}
+};
