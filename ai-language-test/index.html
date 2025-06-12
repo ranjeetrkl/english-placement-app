@@ -15,7 +15,20 @@
         <div id="welcome-screen" class="screen">
             <h1>Welcome to the AI-Powered English Placement Test</h1>
             <p style="text-align:center;">This advanced test uses AI to provide instant feedback on your writing and speaking skills.</p>
-            <button onclick="showScreen('test-screen')" class="button">Start Test</button>
+            <button onclick="showScreen('details-screen')" class="button">Start Test</button>
+        </div>
+        
+        <!-- NEW: Student Details Screen -->
+        <div id="details-screen" class="screen hide">
+            <h2>Please Enter Your Details</h2>
+            <form id="details-form">
+                <input type="text" id="student-name" placeholder="Full Name" required>
+                <input type="tel" id="student-mobile" placeholder="Mobile Number" required>
+                <input type="email" id="student-email" placeholder="Email Address" required>
+                <input type="text" id="student-address" placeholder="City / Address" required>
+                <input type="text" id="student-qualification" placeholder="Highest Qualification" required>
+                <button type="submit" class="button">Next: Start the Test</button>
+            </form>
         </div>
 
         <!-- The Test Screen -->
@@ -57,7 +70,7 @@
 
         <!-- Final Results Screen -->
         <div id="results-screen" class="screen hide">
-            <h2>Your Placement Test Results</h2>
+            <h2 id="results-heading">Your Placement Test Results</h2>
             <div id="final-results-container" class="feedback-box">
                 <!-- Final results will be displayed here -->
             </div>
@@ -65,7 +78,7 @@
 
     </div>
 
-    <!-- Link to the new question bank file FIRST -->
+    <!-- Link to the question bank file FIRST -->
     <script src="questions.js"></script>
     <!-- Link to your main script file SECOND -->
     <script src="script.js" defer></script>
