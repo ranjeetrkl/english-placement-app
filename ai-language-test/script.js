@@ -11,15 +11,12 @@ let studentDetails = {}; // To store student info
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
-    // **FIX IS HERE: Added event listener for the new details form**
     const detailsForm = document.getElementById('details-form');
     if (detailsForm) {
         detailsForm.addEventListener('submit', handleDetailsSubmit);
     }
     
-    // Check if questionBank is available from questions.js
     if (typeof questionBank !== 'undefined' && Array.isArray(questionBank)) {
-        // Shuffle the bank and select 5 random questions
         dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
         loadMCQs(dynamicMcqData);
     } else {
@@ -27,9 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// **FIX IS HERE: Added the missing function to handle form submission**
 function handleDetailsSubmit(event) {
-    event.preventDefault(); // Prevent the form from reloading the page
+    event.preventDefault(); 
     studentDetails = {
         name: document.getElementById('student-name').value,
         mobile: document.getElementById('student-mobile').value,
@@ -37,12 +33,10 @@ function handleDetailsSubmit(event) {
         address: document.getElementById('student-address').value,
         qualification: document.getElementById('student-qualification').value,
     };
-    // Personalize the results heading for later
     const resultsHeading = document.getElementById('results-heading');
     if (resultsHeading) {
         resultsHeading.textContent = `${studentDetails.name}'s Placement Test Results`;
     }
-    // Go to the main test screen
     showScreen('test-screen');
 }
 
@@ -94,7 +88,7 @@ async function analyzeWriting() {
     const prompt = `You are an API that ONLY returns valid JSON. Your task is to act as an expert English teacher evaluating a student's writing. Evaluate the following text: "${writingInput.value}". Provide feedback in a JSON object with these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings). If there are no mistakes or suggestions, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
     
     const payload = {
-      type: 'analyze', // To differentiate from saving data
+      type: 'analyze',
       prompt: prompt,
       schema: {
           type: "OBJECT",
@@ -241,7 +235,7 @@ async function analyzeSpokenText(transcript) {
     const prompt = `You are an API that ONLY returns valid JSON. Do not include any introductory text. Your task is to act as an expert English teacher evaluating a student's spoken response: "${transcript}". Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings). If there are no corrections or positive points, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
     
     const payload = {
-      type: 'analyze', // To differentiate from saving data
+      type: 'analyze',
       prompt: prompt,
       schema: {
           type: "OBJECT",
@@ -281,7 +275,7 @@ async function analyzeSpokenText(transcript) {
     }
 }
 
-// --- Display Inline Feedback ---
+// --- Display Inline Feedback (FIXED) ---
 function displayFeedback(elementId, feedback) {
     const container = document.getElementById(elementId);
     if(!container) return;
@@ -293,6 +287,8 @@ function displayFeedback(elementId, feedback) {
         html = `
             <h4>AI Writing Analysis</h4>
             <p>Overall Score: <span class="score">${score}</span></p>
+            <p><strong>Grammar Mistakes:</strong></p>
+            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
             <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
@@ -300,8 +296,12 @@ function displayFeedback(elementId, feedback) {
          const score = feedback.clarityScore !== undefined ? `${feedback.clarityScore}/10` : 'Not available';
          html = `
             <h4>AI Speaking Analysis</h4>
+            <p><em>Your response: "${feedback.transcript}"</em></p>
+            <p>Clarity & Fluency Score: <span class="score">${score}</span></p>
             <p><strong>Suggested Corrections:</strong></p>
             <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great!</li>'}</ul>
+            <p><strong>What You Did Well:</strong></p>
+            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
         `;
     }
 
