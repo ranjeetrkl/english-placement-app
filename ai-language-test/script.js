@@ -6,33 +6,45 @@ const SECURE_API_ENDPOINT = '/.netlify/functions/analyse';
 let mcqScore = 0;
 let writingFeedback = null;
 let speakingFeedback = null;
-let dynamicMcqData = []; // To store the randomly selected questions
-
-// --- STATIC QUESTION BANK ---
-const questionBank = [
-    { question: "He _____ to the market yesterday.", options: ["go", "goes", "went", "gone"], correct: 2 },
-    { question: "She is the _____ girl in the class.", options: ["tall", "taller", "tallest", "more tall"], correct: 2 },
-    { question: "I have never _____ to Mumbai before.", options: ["be", "was", "been", "being"], correct: 2 },
-    { question: "The opposite of 'expensive' is _____.", options: ["cheap", "small", "beautiful", "far"], correct: 0 },
-    { question: "If you study hard, you _____ pass the exam.", options: ["will", "would", "can", "could"], correct: 0 },
-    { question: "There isn't _____ sugar in my coffee.", options: ["many", "much", "a lot", "some"], correct: 1 },
-    { question: "He is interested _____ learning French.", options: ["in", "on", "at", "for"], correct: 0 },
-    { question: "My keys are not on the table, so I must have _____ them at work.", options: ["leave", "left", "leaving", "leaves"], correct: 1 },
-    { question: "What _____ you do if you won the lottery?", options: ["will", "would", "are", "do"], correct: 1 },
-    { question: "A person who writes books is called an _____.", options: ["author", "artist", "actor", "athlete"], correct: 0 },
-    { question: "She has been waiting for the bus _____ two hours.", options: ["since", "for", "at", "from"], correct: 1 },
-    { question: "The train was late _____ the bad weather.", options: ["because of", "so", "but", "although"], correct: 0 },
-    { question: "I prefer tea _____ coffee.", options: ["than", "from", "to", "over"], correct: 2 },
-    { question: "Can you tell me where _____?", options: ["is the library", "the library is", "is library", "the library"], correct: 1 },
-    { question: "Neither my brother _____ my sister likes spinach.", options: ["or", "and", "but", "nor"], correct: 3 }
-];
+let dynamicMcqData = []; 
+let studentDetails = {}; // To store student info
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Shuffle the bank and select 5 random questions
-    dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
-    loadMCQs(dynamicMcqData);
+    // **FIX IS HERE: Added event listener for the new details form**
+    const detailsForm = document.getElementById('details-form');
+    if (detailsForm) {
+        detailsForm.addEventListener('submit', handleDetailsSubmit);
+    }
+    
+    // Check if questionBank is available from questions.js
+    if (typeof questionBank !== 'undefined' && Array.isArray(questionBank)) {
+        // Shuffle the bank and select 5 random questions
+        dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
+        loadMCQs(dynamicMcqData);
+    } else {
+        console.error("Question bank not found or is not an array. Make sure questions.js is loaded correctly.");
+    }
 });
+
+// **FIX IS HERE: Added the missing function to handle form submission**
+function handleDetailsSubmit(event) {
+    event.preventDefault(); // Prevent the form from reloading the page
+    studentDetails = {
+        name: document.getElementById('student-name').value,
+        mobile: document.getElementById('student-mobile').value,
+        email: document.getElementById('student-email').value,
+        address: document.getElementById('student-address').value,
+        qualification: document.getElementById('student-qualification').value,
+    };
+    // Personalize the results heading for later
+    const resultsHeading = document.getElementById('results-heading');
+    if (resultsHeading) {
+        resultsHeading.textContent = `${studentDetails.name}'s Placement Test Results`;
+    }
+    // Go to the main test screen
+    showScreen('test-screen');
+}
 
 function loadMCQs(questions) {
     const mcqForm = document.getElementById('mcq-form');
@@ -79,19 +91,12 @@ async function analyzeWriting() {
     if(loader) loader.classList.remove('hide');
     if(feedbackBox) feedbackBox.classList.add('hide');
 
-    const prompt = `
-        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
-        Your task is to act as an expert English teacher evaluating a student's writing.
-        The student was asked to "describe your future goals".
-        Evaluate the following text: "${writingInput.value}".
-        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement). If there are no mistakes or suggestions, return an empty array for the corresponding key.
-        Your response must be ONLY the raw JSON object.`;
+    const prompt = `You are an API that ONLY returns valid JSON. Your task is to act as an expert English teacher evaluating a student's writing. Evaluate the following text: "${writingInput.value}". Provide feedback in a JSON object with these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings). If there are no mistakes or suggestions, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
     
     const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
+      type: 'analyze', // To differentiate from saving data
+      prompt: prompt,
+      schema: {
           type: "OBJECT",
           properties: {
             "overallScore": { "type": "NUMBER" },
@@ -99,7 +104,6 @@ async function analyzeWriting() {
             "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
           },
         }
-      }
     };
 
     try {
@@ -234,18 +238,12 @@ async function analyzeSpokenText(transcript) {
     const loader = document.getElementById('speaking-loader');
     const feedbackBox = document.getElementById('speaking-feedback');
 
-    const prompt = `
-        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
-        Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
-        Evaluate the following transcript of their speech: "${transcript}".
-        Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings). If there are no corrections or positive points, return an empty array for the corresponding key.
-        Your response must be ONLY the raw JSON object.`;
+    const prompt = `You are an API that ONLY returns valid JSON. Do not include any introductory text. Your task is to act as an expert English teacher evaluating a student's spoken response: "${transcript}". Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings). If there are no corrections or positive points, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
     
     const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
+      type: 'analyze', // To differentiate from saving data
+      prompt: prompt,
+      schema: {
           type: "OBJECT",
           properties: {
             "clarityScore": { "type": "NUMBER" },
@@ -253,7 +251,6 @@ async function analyzeSpokenText(transcript) {
             "positivePoints": { "type": "ARRAY", "items": { "type": "STRING" } }
           }
         }
-      }
     };
     
     try {
@@ -284,7 +281,7 @@ async function analyzeSpokenText(transcript) {
     }
 }
 
-// --- Display Inline Feedback (FIXED) ---
+// --- Display Inline Feedback ---
 function displayFeedback(elementId, feedback) {
     const container = document.getElementById(elementId);
     if(!container) return;
@@ -296,8 +293,6 @@ function displayFeedback(elementId, feedback) {
         html = `
             <h4>AI Writing Analysis</h4>
             <p>Overall Score: <span class="score">${score}</span></p>
-            <p><strong>Grammar Mistakes:</strong></p>
-            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
             <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
@@ -305,12 +300,8 @@ function displayFeedback(elementId, feedback) {
          const score = feedback.clarityScore !== undefined ? `${feedback.clarityScore}/10` : 'Not available';
          html = `
             <h4>AI Speaking Analysis</h4>
-            <p><em>Your response: "${feedback.transcript}"</em></p>
-            <p>Clarity & Fluency Score: <span class="score">${score}</span></p>
             <p><strong>Suggested Corrections:</strong></p>
             <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great!</li>'}</ul>
-            <p><strong>What You Did Well:</strong></p>
-            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
         `;
     }
 
@@ -321,7 +312,7 @@ function displayFeedback(elementId, feedback) {
 // --- Final Results Logic ---
 function calculateMCQScore() {
     let score = 0;
-    dynamicMcqData.forEach((item, index) => { // Use the dynamic data
+    dynamicMcqData.forEach((item, index) => {
         const selectedOption = document.querySelector(`input[name="question${index}"]:checked`);
         if (selectedOption && parseInt(selectedOption.value) === item.correct) {
             score++;
@@ -330,8 +321,39 @@ function calculateMCQScore() {
     mcqScore = score;
 }
 
-function showFinalResults() {
+// UPDATED: This now saves data before showing results
+async function showFinalResults() {
     calculateMCQScore();
+    
+    const finalResults = {
+        studentInfo: studentDetails,
+        mcq: {
+            score: mcqScore,
+            total: dynamicMcqData.length
+        },
+        writing: writingFeedback,
+        speaking: speakingFeedback,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Send the final results to the server to be saved
+    try {
+        const response = await fetch(SECURE_API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'saveResults', data: finalResults })
+        });
+        const saveResult = await response.json();
+        if (saveResult.error) {
+            console.error("Failed to save results:", saveResult.error);
+        } else {
+            console.log("Results saved successfully:", saveResult.id);
+        }
+    } catch (error) {
+        console.error("Error saving results:", error);
+    }
+    
+    // Now show the results to the user
     const resultsContainer = document.getElementById('final-results-container');
     if(!resultsContainer) return;
 
