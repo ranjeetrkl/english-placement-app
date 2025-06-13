@@ -85,21 +85,18 @@ async function analyzeWriting() {
     if(loader) loader.classList.remove('hide');
     if(feedbackBox) feedbackBox.classList.add('hide');
 
-    // **UPDATED, STRICTER PROMPT**
     const prompt = `
-        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
-        Your task is to act as an expert English teacher evaluating a student's writing.
-        The student was asked to "describe your future goals".
-        Evaluate the following text: "${writingInput.value}".
-        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement).
-        The "overallScore" is mandatory. If the text is too short or simple to evaluate properly, please assign a low score like 1 or 2, but always provide a score.
-        If there are no mistakes or suggestions, return an empty array for the corresponding key.
+        You are an API that ONLY returns valid JSON. Your task is to act as an expert English teacher evaluating a student's writing. Evaluate the following text: "${writingInput.value}".
+        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings).
+        The "overallScore" is mandatory. If the text is too short or simple to evaluate properly, assign a low score like 1 or 2, but always provide a score.
         Your response must be ONLY the raw JSON object.`;
     
+    // **CORRECTED PAYLOAD**
     const payload = {
-      type: 'analyze',
-      prompt: prompt,
-      schema: {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
           type: "OBJECT",
           properties: {
             "overallScore": { "type": "NUMBER" },
@@ -107,6 +104,7 @@ async function analyzeWriting() {
             "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
           },
         }
+      }
     };
 
     try {
@@ -241,20 +239,20 @@ async function analyzeSpokenText(transcript) {
     const loader = document.getElementById('speaking-loader');
     const feedbackBox = document.getElementById('speaking-feedback');
 
-    // **UPDATED, STRICTER PROMPT**
     const prompt = `
         You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
         Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
         Evaluate the following transcript of their speech: "${transcript}".
         Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings).
         The "clarityScore" is mandatory. If the text is too short or simple to evaluate properly, please assign a low score like 1 or 2, but always provide a score.
-        If there are no corrections or positive points, return an empty array for the corresponding key.
         Your response must be ONLY the raw JSON object.`;
     
+    // **CORRECTED PAYLOAD**
     const payload = {
-      type: 'analyze',
-      prompt: prompt,
-      schema: {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
           type: "OBJECT",
           properties: {
             "clarityScore": { "type": "NUMBER" },
@@ -262,6 +260,7 @@ async function analyzeSpokenText(transcript) {
             "positivePoints": { "type": "ARRAY", "items": { "type": "STRING" } }
           }
         }
+      }
     };
     
     try {
@@ -338,36 +337,9 @@ function calculateMCQScore() {
     mcqScore = score;
 }
 
-// UPDATED: This now saves data before showing results
-async function showFinalResults() {
+// Temporarily disabled saving to isolate the analysis bug
+function showFinalResults() {
     calculateMCQScore();
-    
-    const finalResults = {
-        studentInfo: studentDetails,
-        mcq: {
-            score: mcqScore,
-            total: dynamicMcqData.length
-        },
-        writing: writingFeedback,
-        speaking: speakingFeedback,
-        timestamp: new Date().toISOString()
-    };
-    
-    try {
-        const response = await fetch(SECURE_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'saveResults', data: finalResults })
-        });
-        const saveResult = await response.json();
-        if (saveResult.error) {
-            console.error("Failed to save results:", saveResult.error);
-        } else {
-            console.log("Results saved successfully:", saveResult.id);
-        }
-    } catch (error) {
-        console.error("Error saving results:", error);
-    }
     
     const resultsContainer = document.getElementById('final-results-container');
     if(!resultsContainer) return;
@@ -378,7 +350,7 @@ async function showFinalResults() {
     `;
 
     if (writingFeedback) {
-        const score = writingFeedback.overallScore !== undefined ? `${writingFeedback.overallScore}/10` : 'Not attempted';
+        const score = writingFeedback.overallScore !== undefined ? `${writingFeedback.overallScore}/10` : 'Not available';
         resultsHTML += `<p><strong>AI Writing Score:</strong> <span class="score">${score}</span></p>`;
     } else {
         resultsHTML += `<p><strong>AI Writing Score:</strong> Not attempted.</p>`;
