@@ -1,9 +1,7 @@
 // analyse.js
-// This code now handles both AI analysis AND saving results to Firestore.
+// This code runs on Netlify's server. Its job is to clean the AI response.
 
 // Import Firebase Admin SDK (if you have it set up)
-// Note: The Firebase part is for saving data, the fix is in handleAnalysis.
-// If you haven't set up Firebase yet, the analyze part will still work.
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -38,7 +36,7 @@ exports.handler = async function (event) {
   }
 };
 
-// **THE FIX IS IN THIS FUNCTION**
+// Function to handle AI analysis requests
 async function handleAnalysis(requestBody) {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -47,8 +45,6 @@ async function handleAnalysis(requestBody) {
   
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   
-  // **CORRECTED PAYLOAD CONSTRUCTION**
-  // We now build the correct payload that the Google AI expects.
   const payload = {
       contents: [{ role: "user", parts: [{ text: requestBody.prompt }] }],
       generationConfig: {
@@ -61,19 +57,31 @@ async function handleAnalysis(requestBody) {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload) // Send the correctly structured payload
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
     
-    // This logic to clean the response is still useful
     if (!data.candidates || data.candidates.length === 0) {
       console.error("AI response was empty or blocked:", data);
       throw new Error("The AI could not process this request, possibly due to safety filters.");
     }
 
-    const rawText = data.candidates[0].content.parts[0].text;
-    const cleanData = JSON.parse(rawText);
+    let rawText = data.candidates[0].content.parts[0].text;
+    
+    // **NEW, MORE ROBUST PARSING LOGIC**
+    // Remove markdown code fences if they exist
+    rawText = rawText.replace(/```json\n/g, '').replace(/```/g, '');
+    
+    const jsonStartIndex = rawText.indexOf('{');
+    const jsonEndIndex = rawText.lastIndexOf('}');
+        
+    if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+        throw new Error("AI did not return a recognizable JSON object.");
+    }
+
+    const jsonString = rawText.substring(jsonStartIndex, jsonEndIndex + 1);
+    const cleanData = JSON.parse(jsonString);
 
     return { statusCode: 200, body: JSON.stringify(cleanData) };
 
