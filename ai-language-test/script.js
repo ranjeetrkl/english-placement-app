@@ -11,13 +11,11 @@ let studentDetails = {}; // To store student info
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
-    // **FIX IS HERE: This event listener connects the details form to our code.**
     const detailsForm = document.getElementById('details-form');
     if (detailsForm) {
         detailsForm.addEventListener('submit', handleDetailsSubmit);
     }
     
-    // This part loads the MCQ questions from your questions.js file.
     if (typeof questionBank !== 'undefined' && Array.isArray(questionBank)) {
         dynamicMcqData = questionBank.sort(() => 0.5 - Math.random()).slice(0, 5);
         loadMCQs(dynamicMcqData);
@@ -26,9 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// **FIX IS HERE: This is the missing function that handles the form.**
 function handleDetailsSubmit(event) {
-    event.preventDefault(); // This stops the page from reloading.
+    event.preventDefault(); 
     studentDetails = {
         name: document.getElementById('student-name').value,
         mobile: document.getElementById('student-mobile').value,
@@ -36,12 +33,10 @@ function handleDetailsSubmit(event) {
         address: document.getElementById('student-address').value,
         qualification: document.getElementById('student-qualification').value,
     };
-    // Personalize the results heading for later.
     const resultsHeading = document.getElementById('results-heading');
     if (resultsHeading) {
         resultsHeading.textContent = `${studentDetails.name}'s Placement Test Results`;
     }
-    // Now, show the main test screen.
     showScreen('test-screen');
 }
 
@@ -90,7 +85,16 @@ async function analyzeWriting() {
     if(loader) loader.classList.remove('hide');
     if(feedbackBox) feedbackBox.classList.add('hide');
 
-    const prompt = `You are an API that ONLY returns valid JSON. Your task is to act as an expert English teacher evaluating a student's writing. Evaluate the following text: "${writingInput.value}". Provide feedback in a JSON object with these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings). If there are no mistakes or suggestions, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
+    // **UPDATED, STRICTER PROMPT**
+    const prompt = `
+        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
+        Your task is to act as an expert English teacher evaluating a student's writing.
+        The student was asked to "describe your future goals".
+        Evaluate the following text: "${writingInput.value}".
+        Provide feedback in a JSON object. The JSON object must have these exact keys: "overallScore" (a number out of 10), "grammarMistakes" (an array of strings explaining errors), and "suggestions" (an array of strings with tips for improvement).
+        The "overallScore" is mandatory. If the text is too short or simple to evaluate properly, please assign a low score like 1 or 2, but always provide a score.
+        If there are no mistakes or suggestions, return an empty array for the corresponding key.
+        Your response must be ONLY the raw JSON object.`;
     
     const payload = {
       type: 'analyze',
@@ -237,7 +241,15 @@ async function analyzeSpokenText(transcript) {
     const loader = document.getElementById('speaking-loader');
     const feedbackBox = document.getElementById('speaking-feedback');
 
-    const prompt = `You are an API that ONLY returns valid JSON. Do not include any introductory text. Your task is to act as an expert English teacher evaluating a student's spoken response: "${transcript}". Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings). If there are no corrections or positive points, return an empty array for the corresponding key. Your response must be ONLY the raw JSON object.`;
+    // **UPDATED, STRICTER PROMPT**
+    const prompt = `
+        You are an API that ONLY returns valid JSON. Do not include any introductory text, markdown, or explanations.
+        Your task is to act as an expert English teacher evaluating a student's spoken response. The student was asked "Why do you want to improve your English?".
+        Evaluate the following transcript of their speech: "${transcript}".
+        Provide feedback in a JSON object with these keys: "clarityScore" (a number out of 10), "corrections" (an array of strings), and "positivePoints" (an array of strings).
+        The "clarityScore" is mandatory. If the text is too short or simple to evaluate properly, please assign a low score like 1 or 2, but always provide a score.
+        If there are no corrections or positive points, return an empty array for the corresponding key.
+        Your response must be ONLY the raw JSON object.`;
     
     const payload = {
       type: 'analyze',
@@ -292,6 +304,8 @@ function displayFeedback(elementId, feedback) {
         html = `
             <h4>AI Writing Analysis</h4>
             <p>Overall Score: <span class="score">${score}</span></p>
+            <p><strong>Grammar Mistakes:</strong></p>
+            <ul>${feedback.grammarMistakes?.map(item => `<li>${item}</li>`).join('') || '<li>No significant mistakes found. Great job!</li>'}</ul>
             <p><strong>Suggestions for Improvement:</strong></p>
             <ul>${feedback.suggestions?.map(item => `<li>${item}</li>`).join('') || '<li>Keep up the good work!</li>'}</ul>
         `;
@@ -299,8 +313,12 @@ function displayFeedback(elementId, feedback) {
          const score = feedback.clarityScore !== undefined ? `${feedback.clarityScore}/10` : 'Not available';
          html = `
             <h4>AI Speaking Analysis</h4>
+            <p><em>Your response: "${feedback.transcript}"</em></p>
+            <p>Clarity & Fluency Score: <span class="score">${score}</span></p>
             <p><strong>Suggested Corrections:</strong></p>
             <ul>${feedback.corrections?.map(item => `<li>${item}</li>`).join('') || '<li>Sounded great!</li>'}</ul>
+            <p><strong>What You Did Well:</strong></p>
+            <ul>${feedback.positivePoints?.map(item => `<li>${item}</li>`).join('') || '<li>Clear and well-spoken.</li>'}</ul>
         `;
     }
 
@@ -335,7 +353,6 @@ async function showFinalResults() {
         timestamp: new Date().toISOString()
     };
     
-    // Send the final results to the server to be saved
     try {
         const response = await fetch(SECURE_API_ENDPOINT, {
             method: 'POST',
@@ -352,7 +369,6 @@ async function showFinalResults() {
         console.error("Error saving results:", error);
     }
     
-    // Now show the results to the user
     const resultsContainer = document.getElementById('final-results-container');
     if(!resultsContainer) return;
 
