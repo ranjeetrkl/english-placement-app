@@ -292,7 +292,7 @@ async function analyzeSpokenText(transcript) {
     }
 }
 
-// --- Display Inline Feedback ---
+// --- Display Inline Feedback (FIXED) ---
 function displayFeedback(elementId, feedback) {
     const container = document.getElementById(elementId);
     if(!container) return;
